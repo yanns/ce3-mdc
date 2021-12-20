@@ -18,9 +18,12 @@ object SimpleMDC extends App with Logging {
 
   private def runStep1(index: Int): Unit = {
     logger.info("running step 1 (correlationId should be correlation-{})", index)
+    assert(MDC.get("correlationId") == s"correlation-$index")
     runStep2(index)
   }
 
-  private def runStep2(index: Int): Unit =
+  private def runStep2(index: Int): Unit = {
     logger.info("running step 2 (correlationId should be correlation-{})", index)
+    assert(MDC.get("correlationId") == s"correlation-$index")
+  }
 }
