@@ -8,20 +8,38 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object BrokenMDC extends App with Logging {
   import scala.concurrent.ExecutionContext.Implicits.global
-  FutureMDC.run()
+  FutureMDC.run1()
 }
 
 object FixedMDC extends App with Logging {
   implicit val ec: ExecutionContext = MDCPropagatorExecutionContext(scala.concurrent.ExecutionContext.global)
-  FutureMDC.run()
+  FutureMDC.run1()
+}
+
+object OtherBrokenMDC extends App with Logging {
+  implicit val ec: ExecutionContext = MDCPropagatorExecutionContext(scala.concurrent.ExecutionContext.global)
+  FutureMDC.run2()
 }
 
 object FutureMDC extends Logging {
-  def run()(implicit ec: ExecutionContext): Unit = {
-    // simulate one thread per request
+  def run1()(implicit ec: ExecutionContext): Unit = {
+    // simulate parallel requests
     val futures = (1 to 50).map { index =>
       MDC.put("correlationId", s"correlation-$index")
       runStep1(index).map { _ => MDC.clear() }
+    }
+    val results = Future.sequence(futures)
+    Await.result(results, 30.seconds)
+  }
+
+  def run2()(implicit ec: ExecutionContext): Unit = {
+    // simulate parallel requests
+    val futures = (1 to 1).map { index =>
+      for {
+        _ <- Future(MDC.put("correlationId", s"correlation-$index"))
+        _ <- runStep1(index)
+        _ <- Future(MDC.clear())
+      } yield ()
     }
     val results = Future.sequence(futures)
     Await.result(results, 30.seconds)
